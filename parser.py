@@ -68,8 +68,13 @@ def parse_poe_schedule_with_date() -> dict:
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.add_argument("--window-size=1920,1080")
+    # =======================================================
     
-    driver = None
+     driver = None
     extracted_date = "Дата не знайдена"
     schedule_text = "Графік не сформовано"
 
@@ -216,4 +221,5 @@ def main():
             print("No change detected. No message sent.")
 
 if __name__ == "__main__":
+
     main()
