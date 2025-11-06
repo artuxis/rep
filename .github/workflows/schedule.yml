@@ -40,6 +40,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x' 
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        id: cache-pip
+        with:
+          path: ${{ env.pythonLocation }}/lib/python*/site-packages
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      # ==============================
+
+      - name: Install Chromium and dependencies
+        run: |
+          # 1. Системний пакет Chromium завжди встановлюється (це швидко)
+          sudo apt-get update && sudo apt-get install -y chromium-browser
+          
+          # 2. Python залежності будуть встановлюватися лише, якщо кеш пропущено
+          pip install -r requirements.txt
 
       - name: Install Chromium and dependencies
         run: |
@@ -69,4 +87,5 @@ jobs:
             git push
 
           fi
+
 
