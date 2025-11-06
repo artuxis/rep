@@ -64,19 +64,33 @@ def parse_poe_schedule_with_date() -> dict:
     """
     Парсить графік відключень, повертаючи дату та сирий текстовий графік.
     """
-    chrome_options = Options()
+  chrome_options = Options()
+    
+    # === ОСНОВНІ ПАРАМЕТРИ ===
     chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--window-size=1920,1080")
+    
+    # === КРИТИЧНІ ПАРАМЕТРИ СЕРЕДОВИЩА CI/CD (GitHub) ===
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--disable-infobars")
+    
+    # === ВИРІШЕННЯ ПРОБЛЕМИ ТАЙМАУТУ РЕНДЕРА (НОВЕ) ===
+    chrome_options.add_argument("--single-process")               # КРИТИЧНО: Зменшує споживання RAM
+    chrome_options.add_argument("--disable-setuid-sandbox")      # Додатковий обхід SandBox
+    chrome_options.add_argument("--disable-site-per-process")    # Зменшує використання пам'яті
+    chrome_options.add_argument("--disable-renderer-backgrounding") # Запобігає "засинанню" рендера
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false") # ЗНАЧНЕ ЗМЕНШЕННЯ НАВАНТАЖЕННЯ
+    
+    # === ДОДАТКОВІ ПАРАМЕТРИ ОПТИМІЗАЦІЇ ===
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled") # Анти-виявлення
+    chrome_options.add_argument("--disable-logging")
+    chrome_options.add_argument("--log-level=3")
     chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-    chrome_options.add_argument("--disable-renderer-backgrounding")
-    chrome_options.add_argument("--blink-settings=imagesEnabled=false") 
     # =======================================================
     
 
@@ -100,6 +114,7 @@ def parse_poe_schedule_with_date() -> dict:
         html_content = driver.page_source
         
     except Exception as e:
+
         return {'extracted_date': extracted_date, 'schedule_text': f"❌ Критична помилка завантаження сторінки: {e}"}
     finally:
         if driver:
@@ -234,6 +249,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
