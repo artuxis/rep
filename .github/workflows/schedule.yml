@@ -1,0 +1,72 @@
+name: Power Outage Monitor (Scheduled & Monitor)
+
+on:
+  # 1. Щоденне надсилання за часом UTC
+  schedule:
+    - cron: '50 5 * * *' #  07:50 за Києвом
+    - cron: '*/15 5-18 * * *' #2. Моніторинг (check): Кожні 15 хвилин з 05:00 UTC по 18:45 UTC (це 08:00 до 21:45 Київ)
+  # Ми включаємо 18:00 UTC (21:00 Київ) та всі наступні 15-хвилинні інтервали до кінця години.
+  workflow_dispatch:
+
+# Дозвіл на запис у репозиторій (для коміту last_schedule.txt)
+permissions:
+  contents: write
+
+jobs:
+  run-parser:
+    runs-on: ubuntu-latest
+    
+    # Визначаємо, який режим запускати, залежно від часу
+    steps:
+      - name: Determine Run Mode
+        id: determine_mode
+        run: |
+          # 50 5 * * * = 5:00 UTC (Early morning send)
+          # '*/15 * * * *' = Monitoring
+          
+          # Перевіряємо, чи поточний запуск відповідає ранковому графіку
+          CURRENT_HOUR=$(date -u +%H)
+          if [ "$CURRENT_HOUR" -eq 5 ]; then
+            echo "mode=initial" >> $GITHUB_OUTPUT
+          else
+            echo "mode=check" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Checkout code
+        # Важливо: обов'язково отримуємо повну історію для роботи з гітом
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' 
+
+      - name: Install Chromium and dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y chromium-browser
+          pip install -r requirements.txt
+
+      - name: Run Python Parser
+        id: run_script
+        # Використовуємо визначений режим
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python parser.py --mode ${{ steps.determine_mode.outputs.mode }}
+        
+      - name: Commit and Push new state (if file changed)
+        if: success()
+        run: |
+          # Перевіряємо, чи файл last_schedule.txt був змінений
+          if git diff --exit-code ${{ env.STATE_FILE }}; then
+            echo "State file unchanged, skipping commit."
+          else
+            echo "State file changed, committing new schedule."
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add ${{ env.STATE_FILE }}
+            git commit -m "🤖 Update schedule state [skip ci]"
+            git push
+
+          fi
+
