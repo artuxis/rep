@@ -80,7 +80,7 @@ def parse_poe_schedule_with_date() -> dict:
     chrome_options.add_argument("--disable-site-isolation-trials")
     # =======================================================
     
-    driver = None
+        driver = None
     extracted_date = "Дата не знайдена"
     schedule_text = "Графік не сформовано"
 
@@ -232,6 +232,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
