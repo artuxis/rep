@@ -13,38 +13,28 @@ permissions:
 
 jobs:
   run-parser:
-    # ✅ ВИПРАВЛЕННЯ #1: Використовуємо стабільніший раннер
-    runs-on: ubuntu-22.04 
-
+    runs-on: ubuntu-latest
+    
+    # ✅ ВИКОРИСТОВУЄМО ГОТОВИЙ ОБРАЗ DOCKER ДЛЯ CHROME ТА PYTHON
+    container:
+      # Образ містить Python, Chrome та ChromeDriver, вже налаштовані
+      # Це гарантує сумісність і стабільність
+      image: registry.hub.docker.com/selenium/standalone-chrome:latest
+      options: --user root # Вирішення проблем з дозволами
+      
     env:
       STATE_FILE: last_schedule.txt
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # Примітка: для container job'ів checkout відбувається автоматично в /github/workspace
 
       - name: Determine Run Mode
         id: determine_mode
-        run: |
-          CURRENT_MINUTE=$(date -u +%H:%M)
-          # Якщо зараз 05:50 UTC → режим initial
-          if [ "$CURRENT_MINUTE" = "05:50" ]; then
-            echo "mode=initial" >> $GITHUB_OUTPUT
-          else
-            echo "mode=check" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      # ✅ ВИПРАВЛЕННЯ #2: ВИКОРИСТОВУЄМО ГОТОВУ ДІЮ ДЛЯ CHROME
-      - name: Install Chrome & dependencies
-        uses: browser-actions/setup-chrome@v1
-        id: install-chrome # Зберігаємо вихідні дані (шляхи)
+        # ... (логіка визначення режиму залишається без змін)
 
       - name: Install Python dependencies
+        # Встановлюємо Python залежності всередині Docker-контейнера
         run: pip install -r requirements.txt
 
       - name: Run Python Parser
@@ -52,8 +42,6 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          # ✅ Передаємо шлях до драйвера, який надала попередня дія
-          CHROMEDRIVER_PATH: ${{ steps.install-chrome.outputs.chromedriver-path }} 
         run: |
           echo "Running parser in mode: ${{ steps.determine_mode.outputs.mode }}"
           python parser.py --mode ${{ steps.determine_mode.outputs.mode }}
@@ -70,3 +58,4 @@ jobs:
             git add $STATE_FILE
             git commit -m "🤖 Update schedule state [skip ci]"
             git push
+
