@@ -1,0 +1,65 @@
+name: Test Playwright Access to poe.pl.ua
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test-playwright-access:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Playwright
+        run: |
+          pip install playwright requests
+          python -m playwright install chromium
+          python -m playwright install-deps chromium
+      
+      - name: Check public IP
+        run: |
+          echo "🌐 GitHub Actions IP:"
+          curl -s https://api.ipify.org?format=json | jq .
+      
+      - name: Test website access
+        run: |
+          python -c "
+import logging
+from playwright.sync_api import sync_playwright
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+URL = 'https://www.poe.pl.ua/disconnection/power-outages/'
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+    page = browser.new_page()
+    
+    try:
+        logger.info(f'🌍 Навигація на {URL}')
+        response = page.goto(URL, wait_until='domcontentloaded', timeout=30000)
+        status = response.status
+        
+        logger.info(f'✅ Status Code: {status}')
+        
+        if status == 200:
+            logger.info('✅ УСПІХ! Сайт доступний з GitHub Actions')
+        elif status == 403:
+            logger.error('❌ ПОМИЛКА 403 - IP заблокована')
+            exit(1)
+        else:
+            logger.warning(f'⚠️ Status {status}')
+            
+    except Exception as e:
+        logger.error(f'❌ Помилка: {e}')
+        exit(1)
+    finally:
+        browser.close()
+          "
