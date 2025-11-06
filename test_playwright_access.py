@@ -14,7 +14,11 @@ with sync_playwright() as p:
         args=['--disable-blink-features=AutomationControlled']
     )
     page = browser.new_page()
-    
+    response = page.goto(
+    "https://www.poe.pl.ua/disconnection/power-outages/",
+    wait_until='commit',
+    timeout=15000
+)
     # Try different strategies
     for strategy, timeout in [
         ('commit', 15000),
