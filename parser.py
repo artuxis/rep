@@ -100,8 +100,8 @@ def parse_poe_schedule_with_date() -> dict:
 
     try:
 
-        driver_path = os.environ.get('CHROMEDRIVER_PATH', '/usr/bin/google-chrome')
-        service = Service(executable_path=driver_path)
+        service = Service('chromedriver') 
+        
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(60) 
         driver.get(URL)
@@ -249,6 +249,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
