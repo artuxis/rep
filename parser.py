@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 
 # --- 1. КОНСТАНТИ ---
@@ -72,6 +73,10 @@ def parse_poe_schedule_with_date() -> dict:
     chrome_options.add_argument("--disable-software-rasterizer")
     chrome_options.add_argument("--remote-debugging-port=9222")
     chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-logging") # Зменшує вивід логів
+    chrome_options.add_argument("--log-level=3")     # Зменшує вивід логів
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled") 
+    chrome_options.add_argument("--disable-site-isolation-trials")
     # =======================================================
     
      driver = None
@@ -80,7 +85,8 @@ def parse_poe_schedule_with_date() -> dict:
 
     try:
         service = Service(executable_path='/usr/bin/chromium-browser')
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        driver.set_page_load_timeout(60)
         driver.get(URL)
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CLASS_NAME, "turnoff-scheduleui-table"))
@@ -224,4 +230,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
