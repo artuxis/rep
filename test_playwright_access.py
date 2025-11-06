@@ -25,7 +25,7 @@ with sync_playwright() as p:
         page = browser.new_page()
         logger.info(f"🌍 Navigating to {URL}")
         
-        response = page.goto(URL, wait_until='domcontentloaded', timeout=30000)
+        response = page.goto(URL, wait_until='load', timeout=60000)
         status = response.status
         
         logger.info(f"✅ Status Code: {status}")
