@@ -81,8 +81,7 @@ def parse_poe_schedule_with_date() -> dict:
     # =======================================================
     
 
-driver = None
-
+    driver = None
     extracted_date = "Дата не знайдена"
     schedule_text = "Графік не сформовано"
 
@@ -234,6 +233,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
