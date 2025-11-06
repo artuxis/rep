@@ -8,6 +8,7 @@ import urllib.parse
 from bs4 import BeautifulSoup
 
 # --- 1. КОНСТАНТИ ---
+PROXY_URL = os.environ.get('PROXY_URL')
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 CHAT_ID = os.environ.get('CHAT_ID')
 
@@ -61,11 +62,18 @@ def parse_poe_schedule_with_date() -> dict:
     html_content = ""
 
     try:
-        # ✅ Використовуємо простий HTTP-запит з імітацією браузера
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
-        response = requests.get(URL, headers=headers, timeout=20)
+        
+        # ✅ ВИКОРИСТАННЯ ПРОКСІ
+        proxies = None
+        if PROXY_URL:
+            proxies = {
+                'http': PROXY_URL,
+                'https': PROXY_URL,
+            }
+        response = requests.get(URL, headers=headers, proxies=proxies, timeout=30)
         
         # Перевіряємо, чи запит був успішним
         response.raise_for_status() 
@@ -73,7 +81,7 @@ def parse_poe_schedule_with_date() -> dict:
         html_content = response.text
         
     except requests.exceptions.RequestException as e:
-        return {'extracted_date': extracted_date, 'schedule_text': f"❌ Критична помилка HTTP-запиту: {e}"}
+        return {'extracted_date': extracted_date, 'schedule_text': f"❌ Критична помилка HTTP-запиту (через проксі?): {e}"}
         
     # --- Парсинг Beautiful Soup ---
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -204,6 +212,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
