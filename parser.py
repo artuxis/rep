@@ -5,12 +5,6 @@ import time
 import re
 import requests
 import urllib.parse
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
 
 # --- 1. КОНСТАНТИ ---
@@ -61,65 +55,25 @@ def time_to_time_string(index: int) -> dict:
 # --- 4. ФУНКЦІЯ ПАРСИНГУ (ПОВЕРТАЄ СИРІ ДАНІ) ---
 
 def parse_poe_schedule_with_date() -> dict:
-    """
-    Парсить графік відключень, повертаючи дату та сирий текстовий графік.
-    """
-    chrome_options = Options()
-    
-    # === ОСНОВНІ ПАРАМЕТРИ ===
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--window-size=1920,1080")
-    
-    # === КРИТИЧНІ ПАРАМЕТРИ СЕРЕДОВИЩА CI/CD (GitHub) ===
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-software-rasterizer")
-    
-    # === ВИРІШЕННЯ ПРОБЛЕМИ ТАЙМАУТУ РЕНДЕРА (НОВЕ) ===
-    chrome_options.add_argument("--single-process")               # КРИТИЧНО: Зменшує споживання RAM
-    chrome_options.add_argument("--disable-setuid-sandbox")      # Додатковий обхід SandBox
-    chrome_options.add_argument("--disable-site-per-process")    # Зменшує використання пам'яті
-    chrome_options.add_argument("--disable-renderer-backgrounding") # Запобігає "засинанню" рендера
-    chrome_options.add_argument("--blink-settings=imagesEnabled=false") # ЗНАЧНЕ ЗМЕНШЕННЯ НАВАНТАЖЕННЯ
-    
-    # === ДОДАТКОВІ ПАРАМЕТРИ ОПТИМІЗАЦІЇ ===
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled") # Анти-виявлення
-    chrome_options.add_argument("--disable-logging")
-    chrome_options.add_argument("--log-level=3")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-infobars")
-    chrome_options.add_argument("--disable-background-timer-throttling")
-    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-    # =======================================================
-    
-
-    driver = None
+ 
     extracted_date = "Дата не знайдена"
     schedule_text = "Графік не сформовано"
+    html_content = ""
 
     try:
-
-        driver_path = '/usr/bin/chromedriver' 
-        service = Service(executable_path=driver_path)
+        # ✅ Використовуємо простий HTTP-запит з імітацією браузера
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        response = requests.get(URL, headers=headers, timeout=20)
         
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.set_page_load_timeout(60) 
-        driver.get(URL)
+        # Перевіряємо, чи запит був успішним
+        response.raise_for_status() 
         
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "turnoff-scheduleui-table"))
-        )
-        time.sleep(1)
-
-        html_content = driver.page_source
+        html_content = response.text
         
-    except Exception as e:
-
-        return {'extracted_date': extracted_date, 'schedule_text': f"❌ Критична помилка завантаження сторінки: {e}"}
-    finally:
-        if driver:
-            driver.quit()
+    except requests.exceptions.RequestException as e:
+        return {'extracted_date': extracted_date, 'schedule_text': f"❌ Критична помилка HTTP-запиту: {e}"}
         
     # --- Парсинг Beautiful Soup ---
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -250,6 +204,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
