@@ -65,21 +65,18 @@ def parse_poe_schedule_with_date() -> dict:
     Парсить графік відключень, повертаючи дату та сирий текстовий графік.
     """
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-software-rasterizer")
-    chrome_options.add_argument("--remote-debugging-port=9222")
     chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--disable-logging") # Зменшує вивід логів
-    chrome_options.add_argument("--log-level=3")     # Зменшує вивід логів
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled") 
-    chrome_options.add_argument("--disable-site-isolation-trials")
-    chrome_options.add_argument("--disable-setuid-sandbox") # Дублює --no-sandbox
-    chrome_options.add_argument("--disable-features=site-per-process") # Зменшує використання пам'яті
-    chrome_options.add_argument("--single-process") # Змушує Chrome використовувати менше ресурсів
+    chrome_options.add_argument("--disable-infobars")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false") 
     # =======================================================
     
 
@@ -237,6 +234,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
