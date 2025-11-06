@@ -1,91 +1,60 @@
-name: Power Outage Monitor (Scheduled & Monitor)
+name: Power Outage Monitor
 
 on:
-  # 1. Щоденне надсилання за часом UTC
   schedule:
-    - cron: '50 5 * * *' #  07:50 за Києвом
-    - cron: '*/15 5-18 * * *' #2. Моніторинг (check): Кожні 15 хвилин з 05:00 UTC по 18:45 UTC (це 08:00 до 21:45 Київ)
-  # Ми включаємо 18:00 UTC (21:00 Київ) та всі наступні 15-хвилинні інтервали до кінця години.
+    - cron: '50 5 * * *'      # 07:50 Київ → initial
+    - cron: '*/15 5-18 * * *' # 08:00–21:45 Київ → check
   workflow_dispatch:
 
-# Дозвіл на запис у репозиторій (для коміту last_schedule.txt)
 permissions:
   contents: write
 
 jobs:
-  run-parser:
+  monitor:
     runs-on: ubuntu-latest
-    
-    # Визначаємо, який режим запускати, залежно від часу
+    env:
+      STATE_FILE: last_schedule.txt
+
     steps:
-      - name: Determine Run Mode
-        id: determine_mode
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine mode
+        id: mode
         run: |
-          # 50 5 * * * = 5:00 UTC (Early morning send)
-          # '*/15 * * * *' = Monitoring
-          
-          # Перевіряємо, чи поточний запуск відповідає ранковому графіку
-          CURRENT_HOUR=$(date -u +%H)
-          if [ "$CURRENT_HOUR" -eq 5 ]; then
-            echo "mode=initial" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            if [[ "$(date -u '+%H%M')" == "0550" ]]; then
+              echo "mode=initial" >> $GITHUB_OUTPUT
+            else
+              echo "mode=check" >> $GITHUB_OUTPUT
+            fi
           else
             echo "mode=check" >> $GITHUB_OUTPUT
           fi
-          
-      - name: Checkout code
-        # Важливо: обов'язково отримуємо повну історію для роботи з гітом
-        uses: actions/checkout@v4
-        
-      - name: Set up Python
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x' 
-          
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        id: cache-pip
-        with:
-          path: ${{ env.pythonLocation }}/lib/python*/site-packages
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      # ==============================
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'  
-          
-      - name: Install Google Chrome Environment # ✅ НОВИЙ СПОСІБ ВСТАНОВЛЕННЯ
-        uses: browser-actions/setup-chrome@v1
-        id: install-chrome # Зберігаємо вихідні дані (шляхи)
-          
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-        
-      - name: Run Python Parser
-        id: run_script
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install requests beautifulsoup4
+
+      - name: Run parser
         env:
-          # ✅ Передаємо скрипту шлях до встановленого драйвера
-          CHROMEDRIVER_PATH: ${{ steps.install-chrome.outputs.chromedriver-path }} 
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python parser.py --mode ${{ steps.determine_mode.outputs.mode }}
-        
-      - name: Commit and Push new state (if file changed)
+        run: |
+          python parser.py --mode ${{ steps.mode.outputs.mode }}
+
+      - name: Commit state
         if: success()
         run: |
-          # Перевіряємо, чи файл last_schedule.txt був змінений
-          if git diff --exit-code ${{ env.STATE_FILE }}; then
-            echo "State file unchanged, skipping commit."
+          if git diff --quiet "$STATE_FILE"; then
+            echo "Без змін"
           else
-            echo "State file changed, committing new schedule."
-            git config user.name github-actions
-            git config user.email github-actions@github.com
-            git add ${{ env.STATE_FILE }}
-            git commit -m "🤖 Update schedule state [skip ci]"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$STATE_FILE"
+            git commit -m "Update schedule [skip ci]"
             git push
-
-          fi
-
-
-
