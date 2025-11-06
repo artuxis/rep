@@ -11,8 +11,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.utils import ChromeType
 from bs4 import BeautifulSoup
 
 # --- 1. КОНСТАНТИ ---
@@ -91,7 +89,8 @@ def parse_poe_schedule_with_date() -> dict:
 
     try:
 
-        service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+        driver_path = os.environ.get('CHROMEDRIVER_PATH', '/usr/bin/google-chrome')
+        service = Service(executable_path=driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(60) 
         driver.get(URL)
@@ -238,6 +237,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
