@@ -39,6 +39,7 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+          PROXY_URL: ${{ secrets.PROXY_URL }} # ✅ ДОДАЄМО SECRET ПРОКСІ
         run: |
           echo "Running parser in mode: ${{ steps.determine_mode.outputs.mode }}"
           python parser.py --mode ${{ steps.determine_mode.outputs.mode }}
@@ -55,5 +56,6 @@ jobs:
             git add $STATE_FILE
             git commit -m "🤖 Update schedule state [skip ci]"
             git push
+
 
 
