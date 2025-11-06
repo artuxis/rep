@@ -1,10 +1,9 @@
 name: Power Outage Monitor (Scheduled & Monitor)
 
 on:
-  # 1. Щоденне надсилання о 8:00 ранку (за часом UTC). 
-  # Якщо ви в Україні (EET/EEST), час може зміщуватися на 1-2 години.
+  # 1. Щоденне надсилання за часом UTC
   schedule:
-    - cron: '50 5 * * *' # приблизно 07:50 за Києвом
+    - cron: '50 5 * * *' #  07:50 за Києвом
     - cron: '*/15 * * * *' # 2. Моніторинг кожні 15 хвилин
   workflow_dispatch:
 
@@ -67,4 +66,5 @@ jobs:
             git add ${{ env.STATE_FILE }}
             git commit -m "🤖 Update schedule state [skip ci]"
             git push
+
           fi
