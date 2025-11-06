@@ -64,7 +64,7 @@ def parse_poe_schedule_with_date() -> dict:
     """
     Парсить графік відключень, повертаючи дату та сирий текстовий графік.
     """
-
+    
     chrome_options = Options()
 
     
@@ -251,6 +251,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
