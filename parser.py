@@ -84,10 +84,11 @@ def parse_poe_schedule_with_date() -> dict:
     schedule_text = "Графік не сформовано"
 
     try:
-        service = Service(executable_path='/usr/bin/chromium-browser')
+        service = Service(executable_path='/usr/bin/google-chrome')
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.set_page_load_timeout(60)
+        driver.set_page_load_timeout(60) 
         driver.get(URL)
+        
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CLASS_NAME, "turnoff-scheduleui-table"))
         )
@@ -230,5 +231,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
