@@ -50,19 +50,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       # ==============================
-
-      - name: Install Chromium and dependencies
+      - name: Install Google Chrome and ChromeDriver
         run: |
-          # 1. Системний пакет Chromium завжди встановлюється (це швидко)
-          sudo apt-get update && sudo apt-get install -y chromium-browser
+          # 1. Встановлення Google Chrome (стабільніший за Snap Chromium)
+          sudo apt-get update
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+          rm google-chrome-stable_current_amd64.deb
           
-          # 2. Python залежності будуть встановлюватися лише, якщо кеш пропущено
+          # 2. Встановлення Python-залежностей
           pip install -r requirements.txt
-
-      - name: Install Chromium and dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y chromium-browser
-          pip install -r requirements.txt
+ 
 
       - name: Run Python Parser
         id: run_script
@@ -87,5 +85,6 @@ jobs:
             git push
 
           fi
+
 
 
