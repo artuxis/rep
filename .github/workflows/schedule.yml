@@ -50,22 +50,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       # ==============================
-      - name: Install Google Chrome and ChromeDriver
-        run: |
-          # 1. Встановлення Google Chrome (стабільніший за Snap Chromium)
-          sudo apt-get update
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
-          rm google-chrome-stable_current_amd64.deb
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'  
           
-          # 2. Встановлення Python-залежностей
-          pip install -r requirements.txt
- 
-
+      - name: Install Google Chrome Environment # ✅ НОВИЙ СПОСІБ ВСТАНОВЛЕННЯ
+        uses: browser-actions/setup-chrome@v1
+        id: install-chrome # Зберігаємо вихідні дані (шляхи)
+          
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+        
       - name: Run Python Parser
         id: run_script
-        # Використовуємо визначений режим
         env:
+          # ✅ Передаємо скрипту шлях до встановленого драйвера
+          CHROMEDRIVER_PATH: ${{ steps.install-chrome.outputs.chromedriver-path }} 
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python parser.py --mode ${{ steps.determine_mode.outputs.mode }}
