@@ -12,6 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.utils import ChromeType
 from bs4 import BeautifulSoup
 
 # --- 1. КОНСТАНТИ ---
@@ -78,6 +79,9 @@ def parse_poe_schedule_with_date() -> dict:
     chrome_options.add_argument("--log-level=3")     # Зменшує вивід логів
     chrome_options.add_argument("--disable-blink-features=AutomationControlled") 
     chrome_options.add_argument("--disable-site-isolation-trials")
+    chrome_options.add_argument("--disable-setuid-sandbox") # Дублює --no-sandbox
+    chrome_options.add_argument("--disable-features=site-per-process") # Зменшує використання пам'яті
+    chrome_options.add_argument("--single-process") # Змушує Chrome використовувати менше ресурсів
     # =======================================================
     
 
@@ -86,7 +90,8 @@ def parse_poe_schedule_with_date() -> dict:
     schedule_text = "Графік не сформовано"
 
     try:
-        service = Service(ChromeDriverManager().install())
+
+        service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.set_page_load_timeout(60) 
         driver.get(URL)
@@ -233,6 +238,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
