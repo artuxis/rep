@@ -1,262 +1,168 @@
+# parser.py — Оновлена версія з ротацією UA-проксі
 import os
 import sys
 import argparse
 import time
 import re
 import requests
-import urllib.parse
 from bs4 import BeautifulSoup
+import random
 
-# --- 1. КОНСТАНТИ ---
-# Параметри для проксі та Telegram беруться з Secrets GitHub Actions
-PROXY_URL = os.environ.get('PROXY_URL')
+# --- КОНСТАНТИ ---
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 CHAT_ID = os.environ.get('CHAT_ID')
-
 URL = "https://www.poe.pl.ua/disconnection/power-outages/"
 TARGET_QUEUE = 1
 NON_TIME_COLUMNS = 2
-STATE_FILE = "last_schedule.txt" # Файл тепер зберігає повне повідомлення (Дата + Графік)
+STATE_FILE = "last_schedule.txt"
 
-# Статуси з HTML-форматуванням для Telegram (HTML-теги)
 STATUS_MAPPING = {
     'light_3': '- Можливо не буде',
-    'light_2': '- <b>Точно не буде</b>', # Жирний шрифт <b> для "Точно не буде"
+    'light_2': '- <b>Точно не буде</b>',
 }
 
-# --- 2. ФУНКЦІЇ РОБОТИ ЗІ СТАНОМ ---
-
+# --- ФУНКЦІЇ СТАНУ ---
 def load_last_schedule() -> str:
-    """Завантажує повний останній збережений графік (Дата + Вміст) з файлу."""
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, 'r', encoding='utf-8') as f:
             return f.read().strip()
     return ""
 
-def save_new_schedule(full_schedule_data: str):
-    """Зберігає повний новий графік (Дата + Вміст) у файл."""
+def save_new_schedule(data: str):
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        f.write(full_schedule_data)
+        f.write(data)
 
-# --- 3. ХЕЛПЕРИ ПАРСИНГУ ---
+# --- ПРОКСІ ---
+def get_ua_proxies() -> list:
+    sources = [
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=5000&country=UA&ssl=yes&anonymity=elite",
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=5000&country=UA&ssl=no&anonymity=anonymous"
+    ]
+    proxies = []
+    for src in sources:
+        try:
+            r = requests.get(src, timeout=8)
+            if r.status_code == 200:
+                for line in r.text.splitlines():
+                    if ':' in line:
+                        proxies.append(f"http://{line.strip()}")
+                if len(proxies) >= 3:
+                    break
+        except:
+            continue
+        time.sleep(1)
+    return proxies[:3] if proxies else []
 
-def time_to_time_string(index: int) -> dict:
-    """Обчислює час початку та кінця 30-хвилинного інтервалу за його індексом."""
-    minutes_start = index * 30
-    minutes_end = (index + 1) * 30
+# --- ПАРСИНГ ---
+def parse_schedule() -> dict:
+    proxies = get_ua_proxies()
+    if not proxies:
+        return {'error': '❌ Не вдалося отримати UA-проксі'}
 
-    def format_minutes(total_minutes):
-        h = total_minutes // 60
-        m = total_minutes % 60
-        return f"{h:02d}:{m:02d}"
-
-    return {
-        'start': format_minutes(minutes_start),
-        'end': format_minutes(minutes_end)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'uk-UA,uk;q=0.9',
+        'Referer': 'https://www.google.com.ua/',
     }
 
-# --- 4. ФУНКЦІЯ ПАРСИНГУ (ПОВЕРТАЄ СИРІ ДАНІ) ---
+    for proxy in proxies:
+        print(f"Пробую проксі: {proxy}")
+        try:
+            resp = requests.get(URL, headers=headers, proxies={'http': proxy, 'https': proxy}, timeout=20)
+            if resp.status_code != 200 or len(resp.text) < 5000:
+                continue
 
-def parse_poe_schedule_with_date() -> dict:
-    """
-    Парсить графік з датою і форматує його, використовуючи HTML-теги для Telegram.
-    """
-    extracted_date = "Дата не знайдена"
-    schedule_text_content = "Графік не сформовано"
-    
-    # --- HTTP-ЗАПИТ ---
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-        proxies = None
-        if PROXY_URL:
-            proxies = { 'http': PROXY_URL, 'https': PROXY_URL }
-            
-        response = requests.get(URL, headers=headers, proxies=proxies, timeout=30)
-        response.raise_for_status()
-        html_content = response.text
-        
-    except requests.exceptions.RequestException as e:
-        return {'extracted_date': extracted_date, 'schedule_text_content': f"❌ Критична помилка HTTP-запиту: {e}"}
-        
-    # --- Парсинг Beautiful Soup ---
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # 1. Парсинг дати
-    date_info = soup.find('div', id='gpvinfo')
-    if date_info:
-        match = re.search(r'\d{1,2}\s+[А-Яа-я]+\s+\d{4}\s+року', date_info.text)
-        if match:
-            extracted_date = match.group(0)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            date_div = soup.find('div', id='gpvinfo')
+            date = "Дата не знайдена"
+            if date_div:
+                m = re.search(r'\d{1,2}\s+[А-Яа-я]+\s+\d{4}\s+року', date_div.text)
+                if m: date = m.group(0)
 
-    # 2. Пошук рядка черги
-    schedule_table = soup.find('table', class_='turnoff-scheduleui-table')
-    if not schedule_table:
-        return {'extracted_date': extracted_date, 'schedule_text_content': "❌ Таблиця з графіком не знайдена."}
+            table = soup.find('table', class_='turnoff-scheduleui-table')
+            if not table:
+                continue
 
-    target_row = None
-    rows = schedule_table.find_all('tr')
-    for row in rows:
-        queue_td = row.find('td', class_='turnoff-scheduleui-table-queue', string=f"{TARGET_QUEUE} черга")
-        if queue_td and row.find('td', class_=lambda c: c and 'light_' in c):
-            target_row = row
-            break
-            
-    if not target_row:
-        return {'extracted_date': extracted_date, 'schedule_text_content': f"❌ Графік для {TARGET_QUEUE} черги не знайдено."}
+            target_row = None
+            for row in table.find_all('tr'):
+                if row.find('td', string=f"{TARGET_QUEUE} черга"):
+                    target_row = row
+                    break
+            if not target_row:
+                continue
 
-    # 3. Форматування виводу (згрупування)
-    time_data = []
-    time_tds = target_row.find_all('td')[NON_TIME_COLUMNS:]
-    
-    for i, td in enumerate(time_tds):
-        status_classes = td.get('class', ['light_1'])
-        status_class = next((c for c in status_classes if c.startswith('light_')), 'light_1')
-        time = time_to_time_string(i)
-        time_data.append({"start": time['start'], "end": time['end'], "status": status_class})
+            # --- Групування ---
+            time_data = []
+            for i, td in enumerate(target_row.find_all('td')[NON_TIME_COLUMNS:]):
+                cls = next((c for c in td.get('class', []) if c.startswith('light_')), 'light_1')
+                if cls not in ['light_2', 'light_3']: cls = 'light_1'
+                h = i // 2
+                m = (i % 2) * 30
+                start = f"{h:02d}:{m:02d}"
+                end = f"{h + (m + 30)//60:02d}:{(m + 30)%60:02d}"
+                time_data.append({'start': start, 'end': end, 'status': cls})
 
-    grouped_schedule = []
-    current_group = None
-    for item in time_data:
-        status = item['status']
-        if status not in ['light_2', 'light_3']: status = 'light_1'
-        
-        is_new_group = current_group is None or status != current_group['status']
-        
-        if is_new_group:
-            if current_group: grouped_schedule.append(current_group)
-            current_group = {"start": item['start'], "end": item['end'], "status": status}
-        else:
-            current_group['end'] = item['end']
-            
-    if current_group: grouped_schedule.append(current_group)
+            grouped = []
+            curr = None
+            for item in time_data:
+                if not curr or curr['status'] != item['status']:
+                    if curr: grouped.append(curr)
+                    curr = item.copy()
+                else:
+                    curr['end'] = item['end']
+            if curr: grouped.append(curr)
 
-    # 4. Форматування рядків з HTML
-    output_parts = []
-    for group in grouped_schedule:
-        if group['status'] in STATUS_MAPPING:
-            # STATUS_MAPPING вже містить HTML-теги <b>
-            status_to_display = STATUS_MAPPING[group['status']]
-            
-            # Щоб час завжди був частиною жирного тексту, якщо статус 'light_2':
-            if group['status'] == 'light_2':
-                # Якщо "Точно не буде", додаємо <b> перед часом і закриваємо після статусу
-                # [4:-4] обрізає теги <b></b> навколо статусу, щоб обгорнути все разом.
-                formatted_line = f"<b>{group['start']}-{group['end']} - {status_to_display[4:-4]}</b>"
-            else:
-                # Якщо "Можливо не буде", залишаємо без <b>
-                formatted_line = f"{group['start']}-{group['end']} {status_to_display}"
-                
-            output_parts.append(formatted_line)
-            
-    schedule_lines = "\n".join(output_parts)
-    
-    # Заголовок у курсиві <i>
-    schedule_text_content = f"<i>Вимкнення електрики:</i>\n{schedule_lines}"
-    
-    return {'extracted_date': extracted_date, 'schedule_text_content': schedule_text_content}
+            lines = []
+            for g in grouped:
+                status_text = STATUS_MAPPING.get(g['status'], '')
+                if g['status'] == 'light_2':
+                    lines.append(f"<b>{g['start']}-{g['end']} - {status_text[4:-4]}</b>")
+                else:
+                    lines.append(f"{g['start']}-{g['end']} {status_text}")
+            schedule = "<i>Вимкнення електрики:</i>\n" + "\n".join(lines)
+            return {'date': date, 'schedule': schedule}
 
-# --- 5. ФУНКЦІЯ ВІДПРАВКИ В TELEGRAM ---
+        except Exception as e:
+            print(f"Помилка з {proxy}: {e}")
+            time.sleep(2)
 
-def send_telegram_message(message: str):
-    """
-    Надсилає повідомлення у вказаний Telegram-чат з parse_mode='HTML'.
-    Використовує requests.post з JSON-payload замість GET.
-    """
+    return {'error': '❌ Геоблок: всі проксі не спрацювали'}
+
+# --- TELEGRAM ---
+def send_telegram(msg: str):
     if not BOT_TOKEN or not CHAT_ID:
-        print("❌ Помилка: BOT_TOKEN або CHAT_ID не налаштовано.")
         return
-
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    
-    payload = {
-        'chat_id': CHAT_ID,
-        'text': message,
-        'parse_mode': 'HTML' # ✅ Вмикаємо HTML-форматування
-    }
-
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        if response.json().get('ok'):
-            print("✅ Повідомлення успішно відправлено у Telegram.")
-        else:
-            description = response.json().get('description')
-            print(f"❌ Помилка відправки Telegram: {description}")
-            if 'can\'t parse message' in description.lower():
-                 print("   ℹ️ Перевірте HTML-синтаксис у повідомленні.")
-            
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Помилка підключення до Telegram API: {e}")
+        requests.post(url, json={'chat_id': CHAT_ID, 'text': msg, 'parse_mode': 'HTML'}, timeout=10)
+    except:
+        pass
 
-# --- 6. ГОЛОВНА ТОЧКА ВИКОНАННЯ ---
-
+# --- MAIN ---
 def main():
-    parser = argparse.ArgumentParser(description="Power Outage Schedule Monitor")
-    parser.add_argument('--mode', required=True, choices=['initial', 'check'], help="initial: send first, save. check: compare, send if different.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', required=True, choices=['initial', 'check'])
     args = parser.parse_args()
-    
-    # 1. ПАРСИНГ НОВИХ ДАНИХ
-    result = parse_poe_schedule_with_date()
-    
-    # Обробка критичних помилок парсингу
-    if "❌" in result['schedule_text_content']:
-        print(f"❌ Критична помилка парсингу. Завершую роботу. Деталі: {result['schedule_text_content']}")
-        # 🛑 ВИДАЛЕНО: send_telegram_message(...) - тепер помилка не йде користувачу в ТГ
+
+    result = parse_schedule()
+    if 'error' in result:
+        print(result['error'])
         sys.exit(1)
 
-    new_schedule_content = result['schedule_text_content']
-    extracted_date = result['extracted_date']
-    
-    # Повне повідомлення, яке має бути надіслано/збережено
-    new_full_message = f"{extracted_date}\n\n{new_schedule_content}"
-    
+    full_msg = f"{result['date']}\n\n{result['schedule']}"
+    last = load_last_schedule()
+
     if args.mode == 'initial':
-        # Режим 1: Первинний запуск (зберегти і надіслати)
-        send_telegram_message(new_full_message)
-        save_new_schedule(new_full_message)
-        print("Initial daily schedule sent and saved.")
-        
-    elif args.mode == 'check':
-        # Режим 2: Моніторинг змін (кожні 15 хвилин)
-        last_full_message = load_last_schedule()
-        
-        # 2. Перевірка на повну відсутність змін
-        if new_full_message == last_full_message:
-            print("No change detected. No message sent.")
+        send_telegram(full_msg)
+        save_new_schedule(full_msg)
+    else:
+        if full_msg == last:
+            print("Без змін")
             return
-
-        # 3. Аналіз, що саме змінилося (дата чи лише графік)
-        
-        # Повна зміна (змінилася дата, або змінилася дата і графік)
-        is_total_change = True
-        
-        if last_full_message:
-            try:
-                # Розділяємо старе повідомлення на дату та вміст (дата - перший рядок)
-                last_date = last_full_message.split('\n', 1)[0].strip()
-                
-                # Якщо дати збігаються, але повний вміст різний, то це зміна лише графіка
-                if extracted_date == last_date:
-                    is_total_change = False
-                    
-            except IndexError:
-                # Старий файл кешу був пошкоджений або порожній, розцінюємо як повну зміну
-                pass
-
-        if is_total_change:
-            # Кейс: Змінилася дата, або це перший запуск після очищення кешу.
-            final_message = new_full_message
-            print("Total change (new date or first run). Update sent and new schedule saved.")
-        else:
-            # Кейс: Дата залишилася, але графік змінився (schedule_only_change)
-            update_marker = "(оновлено)"
-            final_message = f"{extracted_date} {update_marker}\n\n{new_schedule_content}"
-            print("Schedule only change detected. Adding (оновлено) and saving.")
-
-        send_telegram_message(final_message)
-        save_new_schedule(new_full_message)
+        date_changed = not last or result['date'] != last.split('\n', 1)[0]
+        msg = full_msg if date_changed else f"{result['date']} (оновлено)\n\n{result['schedule']}"
+        send_telegram(msg)
+        save_new_schedule(full_msg)
 
 if __name__ == "__main__":
     main()
