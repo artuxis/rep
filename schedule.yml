@@ -13,28 +13,25 @@ permissions:
 
 jobs:
   run-parser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # ✅ Можна повернутися до найдешевшого і швидкого раннера
     
-    # ✅ ВИКОРИСТОВУЄМО ГОТОВИЙ ОБРАЗ DOCKER ДЛЯ CHROME ТА PYTHON
-    container:
-      # Образ містить Python, Chrome та ChromeDriver, вже налаштовані
-      # Це гарантує сумісність і стабільність
-      image: registry.hub.docker.com/selenium/standalone-chrome:latest
-      options: --user root # Вирішення проблем з дозволами
-      
     env:
       STATE_FILE: last_schedule.txt
 
     steps:
       - name: Checkout repository
-        # Примітка: для container job'ів checkout відбувається автоматично в /github/workspace
+        uses: actions/checkout@v4
 
       - name: Determine Run Mode
-        id: determine_mode
-        # ... (логіка визначення режиму залишається без змін)
+        # ... (логіка визначення режиму без змін)
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
       - name: Install Python dependencies
-        # Встановлюємо Python залежності всередині Docker-контейнера
+        # ✅ Залишаємо тільки встановлення залежностей Python (requests, beautifulsoup4)
         run: pip install -r requirements.txt
 
       - name: Run Python Parser
@@ -58,4 +55,5 @@ jobs:
             git add $STATE_FILE
             git commit -m "🤖 Update schedule state [skip ci]"
             git push
+
 
