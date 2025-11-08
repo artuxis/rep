@@ -13,11 +13,11 @@ jobs:
         run: |
           echo "Checking https://www.poe.pl.ua/customs/newgpv-info.php"
           response=$(
-curl -s -o /dev/null -w "%{http_code}" -X POST \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d 'seldate={"date_in":"09-11-2025"}' \
-  https://www.poe.pl.ua/customs/newgpv-info.php
-)
+            curl -s -o /dev/null -w "%{http_code}" -X POST \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d 'seldate={"date_in":"09-11-2025"}' \
+              https://www.poe.pl.ua/customs/newgpv-info.php
+          )
           echo "Response code: $response"
           if [ "$response" -ne 200 ]; then
             echo "❌ API is not accessible. Status code: $response"
