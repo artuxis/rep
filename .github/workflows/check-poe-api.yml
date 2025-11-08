@@ -1,0 +1,22 @@
+
+# .github/workflows/check-poe-api.yml
+name: Check POE API Availability
+
+on:
+  workflow_dispatch:  # дозволяє запуск вручну з GitHub UI
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make request to POE API
+        run: |
+          echo "Checking https://www.poe.pl.ua/customs/newgpv-info.php"
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://www.poe.pl.ua/customs/newgpv-info.php)
+          echo "Response code: $response"
+          if [ "$response" -ne 200 ]; then
+            echo "❌ API is not accessible. Status code: $response"
+            exit 1
+          else
+            echo "✅ API is accessible."
+          fi
