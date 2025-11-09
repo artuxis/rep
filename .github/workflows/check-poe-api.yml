@@ -31,13 +31,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      # Ваш скрипт тепер повинен створювати файл message.txt, якщо потрібно надіслати сповіщення.
+      # --- НОВИЙ КРОК: ПЕРЕВІРКА ПРОКСІ ---
+      - name: Proxy Health Check
+        id: proxy_check # Додаємо ID для подальшої перевірки
+        run: python proxy_health_check.py
+        # Якщо цей крок провалюється, то весь Job зупиниться (за замовчуванням)
+
+      # Основний парсер запуститься, тільки якщо Proxy Health Check пройшов
       - name: Run Power Outage Parser via Proxy
+        # Запуск основного парсера
         run: python poe_parser.py
+        # Видалено if: success(), оскільки це стандартна поведінка (кроки виконуються послідовно)
        
       - name: Send Telegram Notification (if message file exists)
         # Цей крок виконається лише, якщо файл message.txt буде створено вашим скриптом
-        if: success() && steps.run_parser.outcome == 'success' && fileExists('message.txt')
+        if: success() && fileExists('message.txt')
         uses: appleboy/telegram-action@master
         with:
           to: ${{ env.TELEGRAM_CHAT_ID }}
