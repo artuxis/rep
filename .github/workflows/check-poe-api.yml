@@ -1,27 +1,43 @@
-
-# .github/workflows/check-poe-api.yml
-name: Check POE API Availability
+name: Power Outage Checker (POE.PL.UA)
 
 on:
-  workflow_dispatch:  # дозволяє запуск вручну з GitHub UI
+  schedule:
+    - cron: '0 * * * *'  # Кожну годину о :00
+  workflow_dispatch:     # Дозволяє запускати вручну
 
 jobs:
-  check-api:
+  check-schedule:
     runs-on: ubuntu-latest
+    env:
+      PROXY_URL: ${{ http://91.238.104.172:2024 }}  # Наприклад: http://user:pass@ip:port або socks5://...
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
     steps:
-      - name: Make request to POE API
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
         run: |
-          echo "Checking https://www.poe.pl.ua/customs/newgpv-info.php"
-          response=$(
-            curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -H "Content-Type: application/x-www-form-urlencoded" \
-              -d 'seldate={"date_in":"09-11-2025"}' \
-              https://www.poe.pl.ua/customs/newgpv-info.php
-          )
-          echo "Response code: $response"
-          if [ "$response" -ne 200 ]; then
-            echo "❌ API is not accessible. Status code: $response"
-            exit 1
-          else
-            echo "✅ API is accessible."
-          fi
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run Power Outage Parser via Proxy
+        run: python poe_parser.py
+        env:
+          http_proxy: ${{ env.PROXY_URL }}
+          https_proxy: ${{ env.PROXY_URL }}
+          HTTP_PROXY: ${{ env.PROXY_URL }}
+          HTTPS_PROXY: ${{ env.PROXY_URL }}
+
+      - name: Upload result as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedule-result
+          path: result_*.txt
+          retention-days: 7
