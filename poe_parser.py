@@ -51,28 +51,3 @@ try:
             f.write(response.text)
             print("Отримана HTML-відповідь:")
             print(response.text[:500] + "...")
-
-    print(f"Результат збережено у {filename}")
-
-    # --- Опціонально: надсилання в Telegram ---
-    if os.getenv("TELEGRAM_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
-        tg_url = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_TOKEN')}/sendMessage"
-        message = f"Графік відключень за {current_date}\nУспішно отримано о {datetime.now().strftime('%H:%M')}"
-        requests.post(tg_url, data={
-            "chat_id": os.getenv("TELEGRAM_CHAT_ID"),
-            "text": message
-        }, proxies=proxies, timeout=10)
-
-except requests.exceptions.RequestException as e:
-    error_msg = f"Помилка запиту: {e}"
-    print(error_msg)
-    with open("error.log", "w", encoding="utf-8") as f:
-        f.write(error_msg)
-
-    # Надсилаємо помилку в Telegram
-    if os.getenv("TELEGRAM_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
-        tg_url = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_TOKEN')}/sendMessage"
-        requests.post(tg_url, data={
-            "chat_id": os.getenv("TELEGRAM_CHAT_ID"),
-            "text": f"ПОМИЛКА парсера!\n{error_msg}"
-        }, proxies=proxies, timeout=10)
