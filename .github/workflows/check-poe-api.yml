@@ -9,8 +9,11 @@ jobs:
   check-schedule:
     runs-on: ubuntu-latest
     env:
-      https_proxy: http://91.238.104.172:2024
-      http_proxy: http://91.238.104.172:2024
+      # Важливо: Якщо проксі потрібен лише для доступу до зовнішнього сайту, а не для git/pip,
+      # тоді краще передавати його як змінну (як ви зробили) і обробляти в Python.
+      # Але для GitHub Actions стандартним є використання HTTP_PROXY/HTTPS_PROXY.
+      HTTPS_PROXY: http://91.238.104.172:2024
+      HTTP_PROXY: http://91.238.104.172:2024
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
@@ -22,15 +25,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
+          
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
+      # Ваш скрипт тепер повинен створювати файл message.txt, якщо потрібно надіслати сповіщення.
       - name: Run Power Outage Parser via Proxy
         run: python poe_parser.py
        
+      - name: Send Telegram Notification (if message file exists)
+        # Цей крок виконається лише, якщо файл message.txt буде створено вашим скриптом
+        if: success() && steps.run_parser.outcome == 'success' && fileExists('message.txt')
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ env.TELEGRAM_CHAT_ID }}
+          token: ${{ env.TELEGRAM_TOKEN }}
+          document: message.txt
+          
       - name: Upload result as artifact
         uses: actions/upload-artifact@v4
         with:
