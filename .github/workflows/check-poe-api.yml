@@ -9,7 +9,7 @@ jobs:
   check-schedule:
     runs-on: ubuntu-latest
     env:
-      PROXY_URL: ${{ http://91.238.104.172:2024 }}  # Наприклад: http://user:pass@ip:port або socks5://...
+      PROXY_URL: http://91.238.104.172:2024   # Наприклад: http://user:pass@ip:port або socks5://...
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
