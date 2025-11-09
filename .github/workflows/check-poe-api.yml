@@ -9,7 +9,8 @@ jobs:
   check-schedule:
     runs-on: ubuntu-latest
     env:
-      PROXY_URL: http://91.238.104.172:2024   # Наприклад: http://user:pass@ip:port або socks5://...
+      https_proxy: http://91.238.104.172:2024
+      http_proxy: http://91.238.104.172:2024
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
@@ -29,12 +30,7 @@ jobs:
 
       - name: Run Power Outage Parser via Proxy
         run: python poe_parser.py
-        env:
-          http_proxy: ${{ env.PROXY_URL }}
-          https_proxy: ${{ env.PROXY_URL }}
-          HTTP_PROXY: ${{ env.PROXY_URL }}
-          HTTPS_PROXY: ${{ env.PROXY_URL }}
-
+       
       - name: Upload result as artifact
         uses: actions/upload-artifact@v4
         with:
